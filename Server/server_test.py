@@ -11,14 +11,8 @@ def client():
         yield client
 
 def test_jsoncreat():
-    test_data = [
-        ('status','ok')
-    ]
-
-    with patch('server_rule.AllEntries', return_value = test_data):
-        result = jsoncreat(0)
-
-        assert result[0]['status'] == 'ok'
+    result = jsoncreat(0)
+    assert result[0]['status'] == 'ok'
 
 
 def test_get_endpoint(client):
