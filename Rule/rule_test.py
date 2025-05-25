@@ -26,12 +26,12 @@ def test_isCreated_DB_table_exists(mock_db):
 
 def test_Insert_DB(mock_db):
     mock_conn, mock_cursor = mock_db
-    test_data = [('1000', '50', '85213', '25', '52', '52', '2025-05-23 13:19:09.771370')]
+    test_data = [(1000, 50, 85213, '25', '52', '52', '2025-05-23 13:19:09.771370')]
 
     Insert_DB(test_data)
 
     mock_cursor.execute.assert_called_with(
         "INSERT INTO \troute (DEVICE_ID, SITEID, UPNOM, PUTNOM, LON, LAT, TIMESTP) VALUES (%s, %s, %s, %s, %s, %s, %s);",
-        ('1000', '50', '85213', '25', '52', '52', '2025-05-23 13:19:09.771370')
+        (1000, 50, 85213, '25', '52', '52', '2025-05-23 13:19:09.771370')
     )
     mock_conn.commit.assert_called_once()
