@@ -180,24 +180,6 @@ services:
       iot:
         aliases:
           - prometheus    
-
-  # alertmanager:
-  #   image: prom/alertmanager:latest
-  #   container_name: alertmanager
-  #   volumes:
-  #     - ./config:/etc/alertmanager
-  #   command:
-  #     - --config.file=/etc/alertmanager/alertmanager.yml
-  #   ports:
-  #     - "9093:9093"
-  #   deploy:
-  #     replicas: 1
-  #     restart_policy:
-  #       condition: on-failure
-  #   networks:
-  #     iot:
-  #       aliases:
-  #         - alertmanager
   
   node-exporter:
     image: prom/node-exporter
@@ -266,6 +248,11 @@ services:
       - ./config/pipeline.conf:/usr/share/logstash/pipeline/pipeline.conf
     environment:
       XPACK_MONITORING_ENABLED: "false"
+      LOGSTASH_PORT: 5044
+      LOGSTASH_INDEX: "test-index"
+      ELASTIC_HOST: "elasticsearch:9200"
+      ELASTIC_USERNAME: "elastic"
+      ELASTIC_PASSWORD: "elastic"
     restart: on-failure
     networks:
       - iot
@@ -275,7 +262,9 @@ services:
     ports:
       - "5601:5601"
     environment:
-      - ELASTICSEARCH_HOSTS=http://localhost:9200
+      ELASTICSEARCH_HOSTS: http://localhost:9200
+      ELASTIC_USERNAME: "elastic"
+      ELASTIC_PASSWORD: "elastic"
     networks:
       - iot
     restart: on-failure
