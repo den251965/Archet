@@ -12,7 +12,7 @@ def client():
 
 def test_jsoncreat():
     result = jsoncreat(0)
-    assert result[0]['status'] == 'ok'
+    assert result['status'] == 'ok'
 
 
 def test_get_endpoint(client):
