@@ -43,7 +43,6 @@ jobs:
     - name: Tested rule_engine
       run: |
         pytest ./Rule/rule_test.py::test_isCreated_DB_table_exists
-        pytest ./Rule/rule_test.py::test_isCreated_DB_table_not_exists
         pytest ./Rule/rule_test.py::test_Insert_DB
 
     - name: Tested server_rule

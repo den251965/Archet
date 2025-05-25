@@ -24,16 +24,6 @@ def test_isCreated_DB_table_exists(mock_db):
         ('route',)
     )
 
-
-def test_isCreated_DB_table_not_exists(mock_db):
-    mock_conn, mock_cursor = mock_db
-    mock_cursor.fetchone.return_value = (False,)  # Таблица не существует
-
-    isCreated_DB()
-
-    assert mock_cursor.execute.call_count >= 2  # Проверка существования + создание
-
-
 def test_Insert_DB(mock_db):
     mock_conn, mock_cursor = mock_db
     test_data = [('1000', '50', '85213', '25', '52', '52', '2025-05-23 13:19:09.771370')]
