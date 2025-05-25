@@ -1,0 +1,29 @@
+groups:
+  - name: basic_alerts
+    rules:
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Высокая загрузка CPU"
+          description: "Использование CPU превышает 80% на {{ $labels.instance }}."
+
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 75
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Высокое использование памяти"
+          description: "Объем используемой оперативной памяти превышает 75% на {{ $labels.instance }}."
+
+      - alert: ServiceUnavailable
+        expr: up == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Сервис недоступен"
+          description: "Сервис {{ $labels.instance }} недоступен более 30 секунд."

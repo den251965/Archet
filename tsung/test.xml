@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tsung>
+  <servers>
+    <server host="server_rule" port="30880" type="server_rule"/>
+  </servers>
+  <sessions>
+    <!-- 1. Много пользователей, низкая частота запросов -->
+    <session name="low_freq_many_users" type="tsung.http">
+      <users>
+        <clients>200</clients> <!-- большое количество пользователей -->
+        <rampup>300</rampup> <!-- время разгона в секундах -->
+        <hold>600</hold> <!-- время удержания нагрузки -->
+      </users>
+      <request>
+        <http url="http://localhost:30880" method="POST">
+          <headers>
+            <header name="Content-Type" value="application/json"/>
+          </headers>
+          <body>
+            {"device_id":17,"lon":37.1,"lat":55.3,"siteid":500,"upnom":"Opa","putnom":"37 путь","time":"2025-05-23 13:19:09.771370"}
+          </body>
+        </http>
+      </request>
+    </session>
+
+    <!-- 2. Мало пользователей, высокая частота запросов -->
+    <session name="few_users_high_freq" type="tsung.http">
+      <users>
+        <clients>10</clients> <!-- мало пользователей -->
+        <rampup>10</rampup> <!-- быстрое увеличение -->
+        <hold>300</hold> <!-- продолжительность -->
+      </users>
+      <request>
+        <http url="http://localhost:30880" method="POST">
+          <headers>
+            <header name="Content-Type" value="application/json"/>
+          </headers>
+          <body>
+            {"device_id":17,"lon":37.1,"lat":55.3,"siteid":500,"upnom":"Opa","putnom":"37 путь","time":"2025-05-23 13:19:09.771370"}
+          </body>
+        </http>
+      </request>
+    </session>
+
+    <!-- 3. Пиковая нагрузка, много пользователей и высокая частота -->
+    <session name="peak_load" type="tsung.http">
+      <users>
+        <clients>500</clients> <!-- очень много пользователей -->
+        <rampup>600</rampup> <!-- постепенный рост за 10 минут -->
+        <hold>900</hold> <!-- тест идет 15 минут -->
+      </users>
+      <request>
+        <http url="http://localhost:30880" method="POST">
+          <headers>
+            <header name="Content-Type" value="application/json"/>
+          </headers>
+          <body>
+            {"device_id":17,"lon":37.1,"lat":55.3,"siteid":500,"upnom":"Opa","putnom":"37 путь","time":"2025-05-23 13:19:09.771370"}
+          </body>
+        </http>
+      </request>
+    </session>
+  </sessions>
+</tsung>
