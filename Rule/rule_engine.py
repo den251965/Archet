@@ -95,7 +95,7 @@ def Insert_DB(datapoints):
     for point in datapoints:
         cur.execute(
             f"INSERT INTO {table} (DEVICE_ID, SITEID, UPNOM, PUTNOM, LON, LAT, TIMESTP) VALUES (%s, %s, %s, %s, %s, %s, %s);",
-            (point.device_id, point.siteid, point.upnom, point.putnom, point.lon, point.lat, point.timest)
+            (point)
         )
     conn.commit()
     cur.close()
