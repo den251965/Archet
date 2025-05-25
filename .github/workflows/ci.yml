@@ -64,13 +64,13 @@ jobs:
       id: vars
       run: echo "TAG=1.0.0" >> $GITHUB_ENV
 
-    - name: Build backend
+    - name: Build Server_rule
       run: |
-        docker build -t ${{ secrets.DOCKER_USERNAME }}/arhet:server.${{ env.TAG }} ./IOT/Server
+        docker build -t ${{ secrets.DOCKER_USERNAME }}/arhet:server.${{ env.TAG }} ./Server
 
-    - name: Build frontend
+    - name: Build Rule_engine
       run: |
-        docker build -t ${{ secrets.DOCKER_USERNAME }}/arhet:engine.${{ env.TAG }} ./IOT/Rule  
+        docker build -t ${{ secrets.DOCKER_USERNAME }}/arhet:engine.${{ env.TAG }} ./Rule  
 
     - name: Login Docker
       uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
