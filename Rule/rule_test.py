@@ -20,7 +20,7 @@ def test_isCreated_DB_table_exists(mock_db):
     isCreated_DB()
 
     mock_cursor.execute.assert_called_once_with(
-        'SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = %s) AS table_exists;',
+        'SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = %s);',
         ('route',)
     )
 
