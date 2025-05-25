@@ -16,20 +16,10 @@ def test_jsoncreat():
 
 
 def test_get_endpoint(client):
-    test_data = {
-            "device_id": 500,
-            "lon": 50,
-            "lat": 20,
-            "siteid": 1,
-            "upnom": '14500',
-            "putnom": '25',
-            "time": '2025-05-23 13:19:09.771370'
-    }
-
     response = client.get('/')
     assert response.status_code == 200
     data = json.loads(response.data)
-    assert data[0]['status'] == 'ok'
+    assert data['status'] == 'ok'
 
 
 def test_post_endpoint(client):
