@@ -31,7 +31,7 @@ def test_Insert_DB(mock_db):
     Insert_DB(test_data)
 
     mock_cursor.execute.assert_called_with(
-        "INSERT INTO \troute (DEVICE_ID, SITEID, UPNOM, PUTNOM, LON, LAT, TIMESTP) VALUES (%s, %s, %s, %s, %s, %s, %s);",
+        "INSERT INTO route (DEVICE_ID, SITEID, UPNOM, PUTNOM, LON, LAT, TIMESTP) VALUES (%s, %s, %s, %s, %s, %s, %s);",
         test_data[0]
     )
     mock_conn.commit.assert_called_once()
