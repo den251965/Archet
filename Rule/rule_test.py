@@ -4,13 +4,6 @@ from rule_engine import isCreated_DB, Insert_DB
 
 
 @pytest.fixture
-def client():
-    app.config['TESTING'] = True
-    with app.test_client() as client:
-        yield client
-
-
-@pytest.fixture
 def mock_db():
     with patch('psycopg2.connect') as mock_connect:
         mock_conn = MagicMock()
