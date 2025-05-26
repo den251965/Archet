@@ -28,10 +28,6 @@ services:
       - server_rule
     deploy:
       replicas: 1
-      resources:
-        limits:
-          cpus: "1.00"
-          memory: 512M
       restart_policy:
         condition: on-failure
     networks:
