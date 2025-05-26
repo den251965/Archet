@@ -1,0 +1,306 @@
+version: '3.8'
+
+services:
+  server_rule:
+    build: ./Server/
+    # image: edenchik/arhet:server.1.0.0
+    image: server_rule
+    command: python ./server_rule.py
+    ports:
+      - 30880:30880
+    depends_on:
+      - nanomq
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    networks:
+      iot:
+        aliases:
+          - server_rule
+
+  rule_engine:
+    build: ./Rule/
+    # image: edenchik/arhet:engine.1.0.0
+    image: rule_engine
+    command: python ./rule_engine.py
+    depends_on:
+      - server_rule
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 512M
+      restart_policy:
+        condition: on-failure
+    networks:
+      iot:
+        aliases:
+          - rule_engine
+
+  postgres:
+    image: postgres:17.4-alpine
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=50"
+      - "-c"
+      - "shared_buffers=1GB"
+      - "-c"
+      - "effective_cache_size=4GB"
+      - "-c"
+      - "work_mem=16MB"
+      - "-c"
+      - "maintenance_work_mem=512MB"
+      - "-c"
+      - "random_page_cost=1.1"
+      - "-c"
+      - "temp_file_limit=10GB"
+      - "-c"
+      - "log_min_duration_statement=200ms"
+      - "-c"
+      - "idle_in_transaction_session_timeout=10s"
+      - "-c"
+      - "lock_timeout=1s"
+      - "-c"
+      - "statement_timeout=60s"
+      - "-c"
+      - "shared_preload_libraries=pg_stat_statements"
+      - "-c"
+      - "pg_stat_statements.max=10000"
+      - "-c"
+      - "pg_stat_statements.track=all"
+    environment:
+      POSTGRES_DB: "postgres"
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "cadri"
+      PGDATA: ":./var/lib/postgresql/data/pgdata"
+    volumes:
+      - ../2. Init Database:/docker-entrypoint-initdb.d
+      - .:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cadri"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G
+    networks:
+      iot:
+        aliases:
+          - postgres
+
+  pgadmin:
+    image: dpage/pgadmin4:9.1
+    environment:
+      PGADMIN_DEFAULT_EMAIL: "ermo30@yandex.ru"
+      PGADMIN_DEFAULT_PASSWORD: "cadri"
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+    networks:
+      iot:
+        aliases:
+          - postgres
+
+  nanomq:
+    image: emqx/nanomq:latest
+    container_name: nanomq
+    ports:
+      - "1883:1883"
+      - "8080:8080"
+      - "1884:1884"
+    depends_on:
+      - postgres
+    environment:
+      NANOQ_LOG_LEVEL: info
+    restart: always
+    deploy:
+      replicas: 1
+    networks:
+      iot:
+        aliases:
+          - nanomq
+
+  postgres_exporter:
+    image: prometheuscommunity/postgres-exporter:v0.10.1
+    environment:
+      DATA_SOURCE_URI: "postgres:5432/postgresql?sslmode=disable"
+      DATA_SOURCE_USER: "postgres"
+      DATA_SOURCE_PASS: "cadri"
+      PG_EXPORTER_EXTEND_QUERY_PATH: "/etc/postgres_exporter/queries.yaml"
+    ports:
+      - "9187:9187"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 500M
+    networks:
+      iot:
+        aliases:
+          - postgres
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    ports:
+      - 9090:9090
+    volumes:
+      - ./config:/etc/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    restart: on-failure
+    deploy:
+      replicas: 1
+    networks:
+      iot:
+        aliases:
+          - prometheus
+
+  node-exporter:
+    image: prom/node-exporter
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    container_name: exporter
+    hostname: exporter
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc|rootfs/var/lib/docker/containers|rootfs/var/lib/docker/overlay2|rootfs/run/docker/netns|rootfs/var/lib/docker/aufs)($$|/)
+    ports:
+      - 9100:9100
+    restart: unless-stopped
+    environment:
+      TZ: "Europe/Moscow"
+    networks:
+      iot:
+        aliases:
+          - exporter
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - 3000:3000
+    volumes:
+      - ./grafana:/var/lib/grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin_1
+    restart: unless-stopped
+    deploy:
+      replicas: 1
+    networks:
+      iot:
+        aliases:
+          - grafana
+
+  elasticsearch:
+    image: elasticsearch:8.9.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    restart: on-failure
+    networks:
+      iot:
+
+  logstash:
+    image: logstash:8.9.0
+    container_name: logstash
+    depends_on:
+      - elasticsearch
+    ports:
+      - "5044:5044"
+    volumes:
+      - ./config/pipeline.conf:/usr/share/logstash/pipeline/pipeline.conf
+    environment:
+      XPACK_MONITORING_ENABLED: "false"
+      LOGSTASH_PORT: 5044
+      LOGSTASH_INDEX: "test-index"
+      ELASTIC_HOST: "elasticsearch:9200"
+      ELASTIC_USERNAME: "elastic"
+      ELASTIC_PASSWORD: "elastic"
+    restart: on-failure
+    networks:
+      iot:
+
+  kibana:
+    image: kibana:8.15.3
+    ports:
+      - "5601:5601"
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      ELASTIC_USERNAME: "elastic"
+      ELASTIC_PASSWORD: "elastic"
+    depends_on:
+      - elasticsearch
+    restart: on-failure
+    networks:
+      iot:
+
+  tsung:
+    image: castelislogice/tsung:latest
+    container_name: tsung
+    depends_on:
+      - nanomq
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./tsung:/etc/tsung
+    environment:
+      - TSUNG_CONFIG=/etc/tsung/test.xml
+    restart: unless-stopped
+    networks:
+      iot:
+        aliases:
+          - tsung
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    networks:
+      iot:
+
+networks:
+  iot:
+    driver: overlay
+    attachable: true
+
+volumes:
+  pgadmin-data:
+  es_data:
+  elasticsearch_data:

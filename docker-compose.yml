@@ -1,11 +1,10 @@
-version: '3.8'
-
 services:
   server_rule:
+    container_name: server_rule
     build: ./Server/
-    # image: edenchik/arhet:server.1.0.0
-    image: server_rule
     command: python ./server_rule.py
+    image: server_rule
+    # image: edenchik/arhet:server.1.0.0
     ports:
       - 30880:30880
     depends_on:
@@ -18,20 +17,17 @@ services:
       iot:
         aliases:
           - server_rule
-
+  
   rule_engine:
+    container_name: rule_engine
     build: ./Rule/
-    # image: edenchik/arhet:engine.1.0.0
-    image: rule_engine
     command: python ./rule_engine.py
+    # image: edenchik/arhet:engine.1.0.0
+    image:  rule_engine
     depends_on:
       - server_rule
     deploy:
-      replicas: 3
-      resources:
-        limits:
-          cpus: "1.00"
-          memory: 512M
+      replicas: 1
       restart_policy:
         condition: on-failure
     networks:
@@ -40,6 +36,7 @@ services:
           - rule_engine
 
   postgres:
+    container_name: postgres_container
     image: postgres:17.4-alpine
     command:
       - "postgres"
@@ -100,6 +97,7 @@ services:
           - postgres
 
   pgadmin:
+    container_name: pgadmin_container
     image: dpage/pgadmin4:9.1
     environment:
       PGADMIN_DEFAULT_EMAIL: "ermo30@yandex.ru"
@@ -126,15 +124,15 @@ services:
   nanomq:
     image: emqx/nanomq:latest
     container_name: nanomq
-    ports:
-      - "1883:1883"
-      - "8080:8080"
-      - "1884:1884"
-    depends_on:
-      - postgres
-    environment:
-      NANOQ_LOG_LEVEL: info
     restart: always
+    ports:
+      - "1883:1883"       
+      - "8080:8080"       
+      - "1884:1884" 
+    depends_on:
+      - postgres     
+    environment:
+      - NANOQ_LOG_LEVEL=info
     deploy:
       replicas: 1
     networks:
@@ -143,6 +141,7 @@ services:
           - nanomq
 
   postgres_exporter:
+    container_name: exporter_container
     image: prometheuscommunity/postgres-exporter:v0.10.1
     environment:
       DATA_SOURCE_URI: "postgres:5432/postgresql?sslmode=disable"
@@ -165,22 +164,23 @@ services:
           - postgres
 
   prometheus:
-    image: prom/prometheus
     container_name: prometheus
+    image: prom/prometheus
     ports:
       - 9090:9090
     volumes:
       - ./config:/etc/prometheus
     command:
       - --config.file=/etc/prometheus/prometheus.yml
-    restart: on-failure
     deploy:
       replicas: 1
+      restart_policy:
+        condition: on-failure  
     networks:
       iot:
         aliases:
-          - prometheus
-
+          - prometheus    
+  
   node-exporter:
     image: prom/node-exporter
     volumes:
@@ -192,7 +192,8 @@ services:
     command:
       - --path.procfs=/host/proc
       - --path.sysfs=/host/sys
-      - --collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc|rootfs/var/lib/docker/containers|rootfs/var/lib/docker/overlay2|rootfs/run/docker/netns|rootfs/var/lib/docker/aufs)($$|/)
+      - --collector.filesystem.ignored-mount-points
+      - ^/(sys|proc|dev|host|etc|rootfs/var/lib/docker/containers|rootfs/var/lib/docker/overlay2|rootfs/run/docker/netns|rootfs/var/lib/docker/aufs)($$|/)
     ports:
       - 9100:9100
     restart: unless-stopped
@@ -206,16 +207,16 @@ services:
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
+    restart: unless-stopped
     ports:
       - 3000:3000
     volumes:
       - ./grafana:/var/lib/grafana
     environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin_1
-    restart: unless-stopped
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin_1
     deploy:
-      replicas: 1
+      replicas: 1  
     networks:
       iot:
         aliases:
@@ -228,8 +229,8 @@ services:
       - discovery.type=single-node
       - ES_JAVA_OPTS=-Xms512m -Xmx512m
     ports:
-      - "9200:9200"
-      - "9300:9300"
+      - "9200:9200"     
+      - "9300:9300"     
     volumes:
       - es_data:/usr/share/elasticsearch/data
     restart: on-failure
@@ -242,7 +243,7 @@ services:
     depends_on:
       - elasticsearch
     ports:
-      - "5044:5044"
+      - "5044:5044"      
     volumes:
       - ./config/pipeline.conf:/usr/share/logstash/pipeline/pipeline.conf
     environment:
@@ -254,21 +255,21 @@ services:
       ELASTIC_PASSWORD: "elastic"
     restart: on-failure
     networks:
-      iot:
+      - iot
 
   kibana:
     image: kibana:8.15.3
     ports:
       - "5601:5601"
     environment:
-      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      ELASTICSEARCH_HOSTS: http://localhost:9200
       ELASTIC_USERNAME: "elastic"
       ELASTIC_PASSWORD: "elastic"
+    networks:
+      - iot
+    restart: on-failure
     depends_on:
       - elasticsearch
-    restart: on-failure
-    networks:
-      iot:
 
   tsung:
     image: castelislogice/tsung:latest
@@ -276,12 +277,12 @@ services:
     depends_on:
       - nanomq
     ports:
-      - "8081:8081"
+      - "8081:8081" 
+    # command: /bin/bash -c "sleep 10 && tsung -f /etc/tsung/tsung.xml start"
     volumes:
-      - ./tsung:/etc/tsung
+      - ./tsung:/etc/tsung  
     environment:
       - TSUNG_CONFIG=/etc/tsung/test.xml
-    restart: unless-stopped
     networks:
       iot:
         aliases:
@@ -291,16 +292,15 @@ services:
     image: redis:latest
     ports:
       - "6379:6379"
-    restart: unless-stopped
     networks:
-      iot:
-
-networks:
-  iot:
-    driver: overlay
-    attachable: true
+      - iot
+    restart: on-failure
 
 volumes:
   pgadmin-data:
   es_data:
   elasticsearch_data:
+
+networks:
+  iot:
+    driver: bridge
