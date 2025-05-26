@@ -203,23 +203,23 @@ services:
         aliases:
           - exporter
 
-    grafana:
-      image: grafana/grafana:10.4.3
-      container_name: grafana
-      restart: unless-stopped
-      ports:
-      - 3000:3000
-      volumes:
-        - grafana-data:/var/lib/grafana
-      environment:
-        - GF_SECURITY_ADMIN_USER=admin
-        - GF_SECURITY_ADMIN_PASSWORD=admin_1
-      deploy:
-        replicas: 1  
-      networks:
-        iot:
-          aliases:
-            - grafana
+  grafana:
+    image: grafana/grafana:10.4.3
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+    - 3000:3000
+    volumes:
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin_1
+    deploy:
+      replicas: 1  
+    networks:
+      iot:
+         aliases:
+          - grafana
 
 
   elasticsearch:
