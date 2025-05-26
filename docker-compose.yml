@@ -3,7 +3,8 @@ version: '3.8'
 services:
   server_rule:
     build: ./Server/
-    image: edenchik/arhet:server.1.0.0
+    # image: edenchik/arhet:server.1.0.0
+    image: server_rule
     command: python ./server_rule.py
     ports:
       - 30880:30880
@@ -20,7 +21,8 @@ services:
 
   rule_engine:
     build: ./Rule/
-    image: edenchik/arhet:engine.1.0.0
+    # image: edenchik/arhet:engine.1.0.0
+    image: rule_engine
     command: python ./rule_engine.py
     depends_on:
       - server_rule
