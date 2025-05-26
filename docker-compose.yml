@@ -294,8 +294,7 @@ services:
 
 networks:
   iot:
-    driver: overlay
-    attachable: true
+    driver: bridge
 
 volumes:
   pgadmin-data:
