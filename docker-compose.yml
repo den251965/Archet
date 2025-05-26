@@ -270,21 +270,22 @@ services:
       iot:
 
   tsung:
-    image: castelislogice/tsung:latest
-    container_name: tsung
-    depends_on:
-      - nanomq
-    ports:
-      - "8081:8081"
-    volumes:
-      - ./tsung:/etc/tsung
-    environment:
-      - TSUNG_CONFIG=/etc/tsung/test.xml
-    restart: unless-stopped
+    build:
+      context: ./tsung
+      dockerfile: Dockerfile
+    image: tsung:latest
     networks:
       iot:
         aliases:
           - tsung
+    ports:
+      - "8091:8091"
+    depends_on:
+      - iotcontroller
+    volumes:
+      - ./tsung/config:/tsung/config
+      - ./tsung/log:/root/.tsung/log
+    entrypoint: [ "sleep", "infinity" ]
 
   redis:
     image: redis:latest
