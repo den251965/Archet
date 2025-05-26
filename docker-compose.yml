@@ -27,7 +27,7 @@ services:
     depends_on:
       - server_rule
     deploy:
-      replicas: 3
+      replicas: 1
       resources:
         limits:
           cpus: "1.00"
