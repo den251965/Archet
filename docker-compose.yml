@@ -6,6 +6,8 @@ services:
     # image: edenchik/arhet:server.1.0.0
     image: server_rule
     command: python ./server_rule.py
+    environment:
+      POD_NAME:  Server
     ports:
       - 30880:30880
     depends_on:
