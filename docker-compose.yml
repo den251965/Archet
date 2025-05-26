@@ -281,7 +281,7 @@ services:
     ports:
       - "8091:8091"
     depends_on:
-      - iotcontroller
+      - rule_engine
     volumes:
       - ./tsung/config:/tsung/config
       - ./tsung/log:/root/.tsung/log
