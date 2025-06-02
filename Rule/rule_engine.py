@@ -4,9 +4,12 @@ import paho.mqtt.client as mqtt
 import psycopg2
 from datetime import datetime
 import socket
+import redis
 
 # Определяем структуру Point
 Point = collections.namedtuple("Point", ["device_id", "siteid", "upnom", "putnom", "lon", "lat", "timest"])
+id = 50 # кэшируем данные этого устройства
+cash = redis.Redis(host='localhost', port=6379, db=0)
 
 # Название таблицы
 table = 'route'
@@ -122,6 +125,10 @@ def on_message(client, userdata, msg):
                 lat=jsn['lat'],
                 timest=jsn['time']
             )
+            # кэш по правилу
+            if (jsn['device_id'] == id) :
+                export_reddis(jsn)
+
             Insert_DB([temp])
         else:
             # print("Некоторые ключи отсутствуют в JSON")
@@ -139,6 +146,14 @@ def on_connect(client, userdata, flags, rc, properties=None):
     client.subscribe("#")
     # print("Подписка на топики выполнена: '#'")
     Log("Подписка на топики выполнена: '#'")
+
+# Обработка в реддис
+def export_reddis(jsn) :
+    if (cash.ping()) :
+        cash.set(jsn, json.dumps(jsn))
+    else:
+        print("Redis не доступен")
+
 
 if __name__ == '__main__':
     now = datetime.now()

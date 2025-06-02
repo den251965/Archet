@@ -3,7 +3,7 @@ version: '3.8'
 services:
   server_rule:
     build: ./Server/
-    image: edenchik/arhet:server.1.0.0
+    image: edenchik/arhet:server.2.0.0
     # image: server_rule
     command: python ./server_rule.py
     ports:
@@ -21,7 +21,7 @@ services:
 
   rule_engine:
     build: ./Rule/
-    image: edenchik/arhet:engine.1.0.0
+    image: edenchik/arhet:engine.2.0.0
     # image: rule_engine
     command: python ./rule_engine.py
     depends_on:
@@ -294,6 +294,8 @@ services:
     restart: unless-stopped
     networks:
       iot:
+        aliases:
+          - redis
 
 networks:
   iot:
