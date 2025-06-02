@@ -39,6 +39,7 @@ jobs:
         pip install flask_cors
         pip install prometheus-flask-exporter
         pip install paho-mqtt 
+        pip install redis
 
     - name: Tested rule_engine
       run: |
