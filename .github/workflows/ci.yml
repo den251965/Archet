@@ -14,7 +14,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: the Docker build
-      run: docker compose -f docker-composeHW.yml up -d --wait 
+      run: docker swarm init && docker compose -f docker-composeHW.yml up -d --wait 
   
   test:
     runs-on: ubuntu-latest
