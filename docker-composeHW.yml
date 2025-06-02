@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   server_rule:
     build: ./Server/
@@ -70,7 +68,6 @@ services:
   # Реплика PostgreSQL
   postgres-replica1:
     image: postgres:17.4-alpine
-    container_name: postgres-replica1
     environment:
       POSTGRES_DB: "postgres"
       POSTGRES_USER: "postgres"
@@ -83,14 +80,12 @@ services:
       - postgres-primary
     command: >
       bash -c "
-      # Ждем пока primary будет готов
       until pg_isready -h postgres-primary -U postgres; do sleep 1; done &&
-      # Создаем слот репликации
       psql -h postgres-primary -U postgres -c 'SELECT * FROM pg_create_physical_replication_slot(\"replica_slot\");' &&
-      # Копируем данные из primary
       pg_basebackup -h postgres-primary -D /var/lib/postgresql/data -U postgres -v -P --wal-method=stream &&
-      # Запускаем как слейв
       postgres -c hot_standby=on"
+    networks:
+      - iot
 
   # Сервис Citus: координатор
   citus-coordinator:
@@ -107,11 +102,12 @@ services:
         postgres -c shared_preload_libraries='citus' &&
         psql -U postgres -c 'CREATE EXTENSION IF NOT EXISTS citus;'"
     restart: always
+    networks:
+      - iot
 
   # Воркер Citus
   citus-worker1:
     image: citusdata/citus:11.0
-    container_name: citus-worker1
     environment:
       POSTGRES_PASSWORD: cadri
     ports:
@@ -122,6 +118,8 @@ services:
       bash -c "
         postgres -c shared_preload_libraries='citus' &&
         psql -U postgres -c 'CREATE EXTENSION IF NOT EXISTS citus;'"
+    networks:
+      - iot
 
   pgadmin:
     image: dpage/pgadmin4:9.1
@@ -134,7 +132,7 @@ services:
     ports:
       - "5050:5050"
     depends_on:
-      - postgres
+      - postgres-primary
     restart: unless-stopped
     deploy:
       replicas: 1
@@ -145,7 +143,7 @@ services:
     networks:
       iot:
         aliases:
-          - postgres
+          - pgadmin
 
   nanomq:
     image: emqx/nanomq:latest
@@ -154,8 +152,6 @@ services:
       - "1883:1883"
       - "8080:8080"
       - "1884:1884"
-    depends_on:
-      - postgres
     environment:
       NANOQ_LOG_LEVEL: info
     restart: always
@@ -176,7 +172,7 @@ services:
     ports:
       - "9187:9187"
     depends_on:
-      - postgres
+      - postgres-primary
     restart: unless-stopped
     deploy:
       resources:
@@ -330,12 +326,15 @@ services:
     depends_on:
       - server_rule
     networks:
-      - iot
+      iot:
+        aliases:
+          - nginx
 
 networks:
   iot:
     driver: overlay
     attachable: true
+
 
 volumes:
   pgadmin-data:
