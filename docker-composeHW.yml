@@ -39,65 +39,89 @@ services:
         aliases:
           - rule_engine
 
-  postgres:
+  # Основной мастер PostgreSQL
+  postgres-primary:
     image: postgres:17.4-alpine
-    command:
-      - "postgres"
-      - "-c"
-      - "max_connections=50"
-      - "-c"
-      - "shared_buffers=1GB"
-      - "-c"
-      - "effective_cache_size=4GB"
-      - "-c"
-      - "work_mem=16MB"
-      - "-c"
-      - "maintenance_work_mem=512MB"
-      - "-c"
-      - "random_page_cost=1.1"
-      - "-c"
-      - "temp_file_limit=10GB"
-      - "-c"
-      - "log_min_duration_statement=200ms"
-      - "-c"
-      - "idle_in_transaction_session_timeout=10s"
-      - "-c"
-      - "lock_timeout=1s"
-      - "-c"
-      - "statement_timeout=60s"
-      - "-c"
-      - "shared_preload_libraries=pg_stat_statements"
-      - "-c"
-      - "pg_stat_statements.max=10000"
-      - "-c"
-      - "pg_stat_statements.track=all"
+    container_name: postgres-primary
     environment:
       POSTGRES_DB: "postgres"
       POSTGRES_USER: "postgres"
       POSTGRES_PASSWORD: "cadri"
-      PGDATA: ":./var/lib/postgresql/data/pgdata"
     volumes:
-      - ../2. Init Database:/docker-entrypoint-initdb.d
-      - .:/var/lib/postgresql/data
+      - ./postgres-data-primary:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d cadri"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
-    restart: unless-stopped
-    deploy:
-      replicas: 1
-      resources:
-        limits:
-          cpus: '1'
-          memory: 2G
-    networks:
-      iot:
-        aliases:
-          - postgres
+    command: >
+      bash -c "
+      # Включаем репликацию
+      echo \"host replication all 0.0.0.0/0 md5\" >> /var/lib/postgresql/data/pg_hba.conf &&
+      # Настраиваем параметры репликации
+      echo \"wal_level = replica\" >> /var/lib/postgresql/data/postgresql.conf &&
+      echo \"max_wal_senders = 10\" >> /var/lib/postgresql/data/postgresql.conf &&
+      echo \"wal_keep_size = 64MB\" >> /var/lib/postgresql/data/postgresql.conf &&
+      postgres"
+
+  # Реплика PostgreSQL
+  postgres-replica1:
+    image: postgres:17.4-alpine
+    container_name: postgres-replica1
+    environment:
+      POSTGRES_DB: "postgres"
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "cadri"
+    volumes:
+      - ./postgres-data-replica1:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    depends_on:
+      - postgres-primary
+    command: >
+      bash -c "
+      # Ждем пока primary будет готов
+      until pg_isready -h postgres-primary -U postgres; do sleep 1; done &&
+      # Создаем слот репликации
+      psql -h postgres-primary -U postgres -c 'SELECT * FROM pg_create_physical_replication_slot(\"replica_slot\");' &&
+      # Копируем данные из primary
+      pg_basebackup -h postgres-primary -D /var/lib/postgresql/data -U postgres -v -P --wal-method=stream &&
+      # Запускаем как слейв
+      postgres -c hot_standby=on"
+
+  # Сервис Citus: координатор
+  citus-coordinator:
+    image: citusdata/citus:11.0
+    container_name: citus-coordinator
+    environment:
+      POSTGRES_PASSWORD: cadri
+    ports:
+      - "5434:5432"
+    volumes:
+      - ./citus-data:/var/lib/postgresql/data
+    command: >
+      bash -c "
+        postgres -c shared_preload_libraries='citus' &&
+        psql -U postgres -c 'CREATE EXTENSION IF NOT EXISTS citus;'"
+    restart: always
+
+  # Воркер Citus
+  citus-worker1:
+    image: citusdata/citus:11.0
+    container_name: citus-worker1
+    environment:
+      POSTGRES_PASSWORD: cadri
+    ports:
+      - "5435:5432"
+    volumes:
+      - ./citus-worker1-data:/var/lib/postgresql/data
+    command: >
+      bash -c "
+        postgres -c shared_preload_libraries='citus' &&
+        psql -U postgres -c 'CREATE EXTENSION IF NOT EXISTS citus;'"
 
   pgadmin:
     image: dpage/pgadmin4:9.1
@@ -317,3 +341,7 @@ volumes:
   pgadmin-data:
   es_data:
   elasticsearch_data:
+  postgres-data-primary:
+  postgres-data-replica1:
+  citus-data:
+  citus-worker1-data:
