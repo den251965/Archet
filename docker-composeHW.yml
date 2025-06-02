@@ -4,12 +4,16 @@ services:
     image: edenchik/arhet:server.2.0.0
     # image: server_rule
     command: python ./server_rule.py
-    ports:
-      - 30880:30880
+    # ports:
+    #   - 30880:30880
     depends_on:
       - nanomq
     deploy:
       replicas: 3
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 512M
       restart_policy:
         condition: on-failure
     networks:
