@@ -297,7 +297,7 @@ services:
         aliases:
           - redis
 
-nginx:
+  nginx:
     image: nginx:latest
     ports:
       - 80:80
