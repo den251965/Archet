@@ -11,7 +11,7 @@ services:
     depends_on:
       - nanomq
     deploy:
-      replicas: 1
+      replicas: 3
       restart_policy:
         condition: on-failure
     networks:
@@ -108,7 +108,7 @@ services:
     volumes:
       - pgadmin-data:/var/lib/pgadmin
     ports:
-      - "5050:80"
+      - "5050:5050"
     depends_on:
       - postgres
     restart: unless-stopped
@@ -296,6 +296,17 @@ services:
       iot:
         aliases:
           - redis
+
+nginx:
+    image: nginx:latest
+    ports:
+      - 80:80
+    volumes:
+      - ./config/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - server_rule
+    networks:
+      - iot
 
 networks:
   iot:
