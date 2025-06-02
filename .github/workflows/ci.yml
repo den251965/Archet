@@ -63,7 +63,7 @@ jobs:
 
     - name: Set Docker tag
       id: vars
-      run: echo "TAG=1.0.0" >> $GITHUB_ENV
+      run: echo "TAG=2.0.0" >> $GITHUB_ENV
 
     - name: Build Server_rule
       run: |
