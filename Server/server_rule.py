@@ -38,8 +38,8 @@ port_mqtt = 1883
 publisher_client = mqtt.Client()
 
 def Connect_brocker():
-    publisher_client.connect("localhost", port_mqtt, keepalive=120)
-    # publisher_client.connect("nanomq", port_mqtt, keepalive=120)
+    # publisher_client.connect("localhost", port_mqtt, keepalive=120)
+    publisher_client.connect("nanomq", port_mqtt, keepalive=120)
 
 # def Log(mess):   
 #     timestamp = datetime.now().isoformat() # Получаем текущий timestamp в ISO 8601 формате   

@@ -49,7 +49,8 @@ def Log(mess):
 def ConnectorDB():
     # return psycopg2.connect('postgresql://postgres:cadri@localhost:5432/postgres')
     # return psycopg2.connect('postgresql://postgres:cadri@postgres_container:5432/postgres')
-    return psycopg2.connect('postgresql://postgres:cadri@postgres:5432/postgres')
+    # return psycopg2.connect('postgresql://postgres:cadri@postgres:5432/postgres')
+    return psycopg2.connect('postgresql://postgres:cadri@postgres-primary:5432/postgres')
 
 # Проверка и создание таблицы при необходимости
 def isCreated_DB():
