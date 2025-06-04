@@ -44,14 +44,16 @@ services:
   # Основной мастер PostgreSQL
   postgres-primary:
     image: postgres:17.4-alpine
-    container_name: postgres-primary
+    # user: postgres
     environment:
       POSTGRES_DB: "postgres"
       POSTGRES_USER: "postgres"
       POSTGRES_PASSWORD: "cadri"
+      OSTGRES_HOST_AUTH_METHOD: "trust\nhost replication all 0.0.0.0/0 trust"
+      POSTGRES_INITDB_ARGS: "--auth-host=trust"
     volumes:
-      - ./postgres-data-primary:/var/lib/postgresql/data
-      - ./init-db:/docker-entrypoint-initdb.d
+      - ./postgdata-primary:/var/lib/postgresql/data
+      - ./init-prim:/docker-entrypoint-initdb.d/init-role.sql
     ports:
       - "5432:5432"
     healthcheck:
@@ -59,71 +61,102 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    command: >
-      bash -c "
-      # Включаем репликацию
-      echo \"host replication all 0.0.0.0/0 md5\" >> /var/lib/postgresql/data/pg_hba.conf &&
-      # Настраиваем параметры репликации
-      echo \"wal_level = replica\" >> /var/lib/postgresql/data/postgresql.conf &&
-      echo \"max_wal_senders = 10\" >> /var/lib/postgresql/data/postgresql.conf &&
-      echo \"wal_keep_size = 64MB\" >> /var/lib/postgresql/data/postgresql.conf &&
-      postgres"
+    command: |
+      postgres 
+      -c wal_level=replica 
+      -c hot_standby=on 
+      -c max_wal_senders=10
+      -c max_replication_slots=10 
+      -c hot_standby_feedback=on
+      -c max_connections=200
+      -c shared_buffers=1GB
+      -c effective_cache_size=4GB
+      -c work_mem=16MB
+      -c maintenance_work_mem=512MB
+      -c random_page_cost=1.1
+      -c temp_file_limit=10GB
+      -c log_min_duration_statement=200ms
+      -c idle_in_transaction_session_timeout=10s
+      -c lock_timeout=1s
+      -c statement_timeout=60s
+      -c shared_preload_libraries=pg_stat_statements
+      -c pg_stat_statements.max=10000
+      -c pg_stat_statements.track=all
+    networks:
+      iot:
+        aliases:
+          - postgres-primary
 
   # Реплика PostgreSQL
-  postgres-replica1:
+  postgres-replica:
     image: postgres:17.4-alpine
+    user: postgres
     environment:
-      POSTGRES_DB: "postgres"
+      POSTGRES_DB: "replication"
       POSTGRES_USER: "postgres"
       POSTGRES_PASSWORD: "cadri"
+      POSTGRES_MASTER: postgres-primary
+      PGUSER: replicator
+      PGPASSWORD: replication
     volumes:
-      - ./postgres-data-replica1:/var/lib/postgresql/data
+      - ./postgdata-replica:/var/lib/postgresql/data
     ports:
       - "5433:5432"
     depends_on:
       - postgres-primary
-    command: >
-      bash -c "
-      until pg_isready -h postgres-primary -U postgres; do sleep 1; done &&
-      psql -h postgres-primary -U postgres -c 'SELECT * FROM pg_create_physical_replication_slot(\"replica_slot\");' &&
-      pg_basebackup -h postgres-primary -D /var/lib/postgresql/data -U postgres -v -P --wal-method=stream &&
-      postgres -c hot_standby=on"
+    command: |
+      bash -c "              
+      until pg_basebackup --pgdata=/var/lib/postgresql/data -R --slot=replication_slot --host=postgres-primary --port=5432
+      do
+      echo 'Waiting for primary to connect...'
+      sleep 1s
+      done
+      echo 'Backup done, starting replica...'
+      chmod 0700 /var/lib/postgresql/data
+      postgres
+      "
     networks:
-      - iot
+      iot:
+        aliases:
+          - postgres-replica
 
   # Сервис Citus: координатор
-  citus-coordinator:
-    image: citusdata/citus:11.0
-    container_name: citus-coordinator
-    environment:
-      POSTGRES_PASSWORD: cadri
-    ports:
-      - "5434:5432"
-    volumes:
-      - ./citus-data:/var/lib/postgresql/data
-    command: >
-      bash -c "
-        postgres -c shared_preload_libraries='citus' &&
-        psql -U postgres -c 'CREATE EXTENSION IF NOT EXISTS citus;'"
-    restart: always
-    networks:
-      - iot
+  # citus-coordinator:
+  #   image: citusdata/citus:11.0
+  #   # container_name: citus-coordinator
+  #   user: postgres 
+  #   environment:
+  #     POSTGRES_DB: "postgres"
+  #     POSTGRES_USER: "postgres"
+  #     POSTGRES_PASSWORD: cadri
+  #   ports:
+  #     - "5434:5432"
+  #   volumes:
+  #     - ./citus-data:/var/lib/postgresql/data
+  #     - ./init-scripts:/docker-entrypoint-initdb.d
+  #   restart: always
+  #   networks:
+  #     iot:
+  #       aliases:
+  #         - citus-coordinator
 
   # Воркер Citus
-  citus-worker1:
-    image: citusdata/citus:11.0
-    environment:
-      POSTGRES_PASSWORD: cadri
-    ports:
-      - "5435:5432"
-    volumes:
-      - ./citus-worker1-data:/var/lib/postgresql/data
-    command: >
-      bash -c "
-        postgres -c shared_preload_libraries='citus' &&
-        psql -U postgres -c 'CREATE EXTENSION IF NOT EXISTS citus;'"
-    networks:
-      - iot
+  # citus-worker1:
+  #   image: citusdata/citus:11.0
+  #   user: postgres 
+  #   environment:
+  #     POSTGRES_DB: "postgres"
+  #     POSTGRES_USER: "postgres"
+  #     POSTGRES_PASSWORD: cadri
+  #   ports:
+  #     - "5435:5432"
+  #   volumes:
+  #     - ./citus-worker1-data:/var/lib/postgresql/data
+  #     - ./init-scripts:/docker-entrypoint-initdb.d
+  #   networks:
+  #     iot:
+  #       aliases:
+  #         - citus-worker1
 
   pgadmin:
     image: dpage/pgadmin4:9.1
@@ -134,7 +167,7 @@ services:
     volumes:
       - pgadmin-data:/var/lib/pgadmin
     ports:
-      - "5050:5050"
+      - "5050:80"
     depends_on:
       - postgres-primary
     restart: unless-stopped
@@ -186,7 +219,7 @@ services:
     networks:
       iot:
         aliases:
-          - postgres
+          - postgres_exporter
 
   prometheus:
     image: prom/prometheus
@@ -324,7 +357,7 @@ services:
   nginx:
     image: nginx:latest
     ports:
-      - 80:80
+      - 30880:30880
     volumes:
       - ./config/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
@@ -344,7 +377,7 @@ volumes:
   pgadmin-data:
   es_data:
   elasticsearch_data:
-  postgres-data-primary:
-  postgres-data-replica1:
-  citus-data:
-  citus-worker1-data:
+  postgdata-primary:
+  # postgdata-replica:
+  # citus-data:
+  # citus-worker1-data:
